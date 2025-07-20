@@ -33,6 +33,10 @@ class ElumineConfig(BaseModel):
         default=1000,
         description="Text chunk size for vector embeddings"
     )
+    openai_api_key: Optional[str] = Field(
+        default=None,
+        description="OpenAI API key for embeddings and completions"
+    )
 
     class Config:
         """Pydantic config."""

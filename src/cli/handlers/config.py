@@ -17,6 +17,7 @@ def handle_config(
     whisper_model: Optional[str] = None,
     whisper_device: Optional[str] = None,
     whisper_compute_type: Optional[str] = None,
+    openai_api_key: Optional[str] = None,
     show: bool = False,
     reset: bool = False
 ) -> None:
@@ -57,6 +58,9 @@ def handle_config(
             console.print(f"[red]Error:[/red] Invalid compute type. Choose from: {', '.join(valid_compute_types)}")
             raise ValueError(f"Invalid compute type: {whisper_compute_type}")
         updates['whisper_compute_type'] = whisper_compute_type
+
+    if openai_api_key:
+        updates['openai_api_key'] = openai_api_key
 
     if updates:
         config_manager.update_config(**updates)
@@ -107,6 +111,11 @@ def display_config(config: ElumineConfig) -> None:
         "Chunk Size",
         str(config.chunk_size),
         "Text chunk size for embeddings"
+    )
+    table.add_row(
+        "OpenAI API Key",
+        "***" if config.openai_api_key else "Not set",
+        "API key for OpenAI services"
     )
 
     console.print()

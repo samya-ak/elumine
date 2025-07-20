@@ -70,6 +70,10 @@ def config_command(
         None, "--whisper-compute-type", "-c",
         help="Set Whisper compute type (int8, int16, float16, float32)"
     ),
+    openai_api_key: Optional[str] = typer.Option(
+        None, "--openai-api-key", "-k",
+        help="Set OpenAI API key for embeddings and completions"
+    ),
     show: bool = typer.Option(
         False, "--show", "-s",
         help="Show current configuration"
@@ -87,6 +91,7 @@ def config_command(
             whisper_model=whisper_model,
             whisper_device=whisper_device,
             whisper_compute_type=whisper_compute_type,
+            openai_api_key=openai_api_key,
             show=show,
             reset=reset
         )
