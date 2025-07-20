@@ -46,4 +46,3 @@ def main(
 
     if ctx.invoked_subcommand is None:
         display_welcome()
-        console.print("[dim]Use [bold]elumine --help[/bold] to see available commands[/dim]")
