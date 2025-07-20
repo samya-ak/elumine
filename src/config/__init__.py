@@ -13,10 +13,6 @@ class ElumineConfig(BaseModel):
         default_factory=lambda: Path.home() / "elumine" / "transcriptions",
         description="Path where transcription files will be saved"
     )
-    artifacts_path: Path = Field(
-        default_factory=lambda: Path.home() / "elumine" / "artifacts",
-        description="Path where original uploaded files will be stored"
-    )
     vectordb_path: Path = Field(
         default_factory=lambda: Path.home() / "elumine" / "vectordb",
         description="Path where vector database will be stored"
@@ -24,6 +20,14 @@ class ElumineConfig(BaseModel):
     whisper_model: str = Field(
         default="base",
         description="Whisper model size (tiny, base, small, medium, large)"
+    )
+    whisper_device: str = Field(
+        default="cpu",
+        description="Device to run Whisper on (cpu, cuda, auto)"
+    )
+    whisper_compute_type: str = Field(
+        default="int8",
+        description="Compute type for Whisper (int8, int16, float16, float32)"
     )
     chunk_size: int = Field(
         default=1000,
@@ -51,7 +55,7 @@ class ConfigManager:
                 with open(self.CONFIG_FILE, 'r') as f:
                     data = json.load(f)
                     # Convert string paths back to Path objects
-                    for key in ['transcriptions_path', 'artifacts_path', 'vectordb_path']:
+                    for key in ['transcriptions_path', 'vectordb_path']:
                         if key in data:
                             data[key] = Path(data[key])
                     return ElumineConfig(**data)
@@ -67,7 +71,7 @@ class ConfigManager:
 
         # Convert Path objects to strings for JSON serialization
         config_dict = self.config.model_dump()
-        for key in ['transcriptions_path', 'artifacts_path', 'vectordb_path']:
+        for key in ['transcriptions_path', 'vectordb_path']:
             config_dict[key] = str(config_dict[key])
 
         with open(self.CONFIG_FILE, 'w') as f:
@@ -83,7 +87,6 @@ class ConfigManager:
     def ensure_directories_exist(self):
         """Create necessary directories if they don't exist."""
         self.config.transcriptions_path.mkdir(parents=True, exist_ok=True)
-        self.config.artifacts_path.mkdir(parents=True, exist_ok=True)
         self.config.vectordb_path.mkdir(parents=True, exist_ok=True)
 
 

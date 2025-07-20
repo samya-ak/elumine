@@ -4,7 +4,7 @@ import typer
 from rich.console import Console
 from .commands import (
     display_welcome,
-    upload_command,
+    transcribe_command,
     query_command,
     list_command,
     summarize_command,
@@ -22,7 +22,7 @@ app = typer.Typer(
 )
 
 # Register commands
-app.command("upload", help="📤 Upload and transcribe an audio/video file")(upload_command)
+app.command("transcribe", help="🎤 Transcribe audio/video files or YouTube videos")(transcribe_command)
 app.command("query", help="❓ Ask a question about a specific artifact")(query_command)
 app.command("list", help="📋 List all processed artifacts")(list_command)
 app.command("summarize", help="📝 Generate summary of an artifact")(summarize_command)

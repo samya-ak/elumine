@@ -1,6 +1,8 @@
 """CLI command implementations."""
 
 import typer
+import json
+from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -10,6 +12,43 @@ from pathlib import Path
 from typing import Optional
 
 console = Console()
+
+
+def _save_transcription(result: dict, transcriptions_path: Path) -> tuple[Path, Path]:
+    """Save transcription result to JSON and text files."""
+    # Ensure transcriptions directory exists
+    transcriptions_path.mkdir(parents=True, exist_ok=True)
+
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_name = "".join(c for c in result['name'] if c.isalnum() or c in (' ', '-', '_')).strip()
+    base_filename = f"{safe_name}_{timestamp}"
+
+    json_file = transcriptions_path / f"{base_filename}.json"
+    text_file = transcriptions_path / f"{base_filename}.txt"
+
+    # Prepare data to save
+    transcription_data = {
+        "name": result['name'],
+        "type": result['type'],
+        "source": result['source'],
+        "timestamp": datetime.now().isoformat(),
+        "language": result.get('language'),
+        "language_probability": result.get('language_probability'),
+        "duration": result.get('duration'),
+        "full_text": result['full_text'],
+        "segments": result.get('segments', [])
+    }
+
+    # Save to JSON file
+    with open(json_file, 'w', encoding='utf-8') as f:
+        json.dump(transcription_data, f, indent=2, ensure_ascii=False)
+
+    # Save to plain text file
+    with open(text_file, 'w', encoding='utf-8') as f:
+        f.write(result['full_text'])
+
+    return json_file, text_file
 
 
 def display_welcome():
@@ -39,19 +78,61 @@ def display_welcome():
     console.print()
 
 
-def upload_command(
-    file_path: Path = typer.Argument(..., help="Path to audio/video file"),
+def transcribe_command(
+    input_path: str = typer.Argument(..., help="Path to audio/video file or YouTube URL"),
     name: str = typer.Option(None, "--name", "-n", help="Custom name for the artifact")
 ):
-    """📤 Upload and transcribe an audio/video file."""
-    console.print(f"[green]Processing file:[/green] {file_path}")
+    """🎤 Transcribe an audio/video file or YouTube video."""
+    from src.config import config_manager
+    from src.core.transcription import TranscriptionService
 
-    if not file_path.exists():
-        console.print(f"[red]Error:[/red] File {file_path} not found")
+    try:
+        # Load configuration
+        config = config_manager.config
+
+        # Initialize transcription service
+        transcription_service = TranscriptionService(
+            model_size=config.whisper_model,
+            device=config.whisper_device,
+            compute_type=config.whisper_compute_type
+        )
+
+        console.print(f"[green]Processing:[/green] {input_path}")
+
+        # Transcribe the input
+        result = transcription_service.transcribe_input(input_path, name)
+
+        # Display results
+        console.print(f"[green]✅ Successfully transcribed:[/green] {result['name']}")
+        console.print(f"[blue]Type:[/blue] {result['type']}")
+        console.print(f"[blue]Language:[/blue] {result.get('language', 'N/A')}")
+        if result.get('duration'):
+            minutes = int(result['duration'] // 60)
+            seconds = int(result['duration'] % 60)
+            console.print(f"[blue]Duration:[/blue] {minutes}:{seconds:02d}")
+
+        # Show preview of transcription
+        preview_text = result['full_text'][:200]
+        if len(result['full_text']) > 200:
+            preview_text += "..."
+
+        console.print(f"[dim]Preview:[/dim] {preview_text}")
+
+        # Save transcription to configured directory
+        json_file, text_file = _save_transcription(result, config.transcriptions_path)
+        console.print(f"[green]💾 Transcription saved to:[/green]")
+        console.print(f"  [dim]JSON:[/dim] {json_file}")
+        console.print(f"  [dim]Text:[/dim] {text_file}")
+
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
-
-    # TODO: Implement transcription logic
-    console.print("[yellow]🚧 Transcription feature coming soon![/yellow]")
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
 
 
 def query_command(
@@ -70,7 +151,7 @@ def list_command():
     console.print("[blue]Available artifacts:[/blue]")
 
     # TODO: List from database
-    console.print("[dim]No artifacts found. Use [bold]elumine upload[/bold] to add some![/dim]")
+    console.print("[dim]No artifacts found. Use [bold]elumine transcribe[/bold] to add some![/dim]")
 
 
 def summarize_command(
@@ -98,10 +179,6 @@ def config_command(
         None, "--transcriptions-path", "-t",
         help="Set path for transcription files"
     ),
-    artifacts_path: Optional[Path] = typer.Option(
-        None, "--artifacts-path", "-a",
-        help="Set path for original uploaded files"
-    ),
     vectordb_path: Optional[Path] = typer.Option(
         None, "--vectordb-path", "-v",
         help="Set path for vector database"
@@ -109,6 +186,14 @@ def config_command(
     whisper_model: Optional[str] = typer.Option(
         None, "--whisper-model", "-m",
         help="Set Whisper model (tiny, base, small, medium, large)"
+    ),
+    whisper_device: Optional[str] = typer.Option(
+        None, "--whisper-device", "-d",
+        help="Set Whisper device (cpu, cuda, auto)"
+    ),
+    whisper_compute_type: Optional[str] = typer.Option(
+        None, "--whisper-compute-type", "-c",
+        help="Set Whisper compute type (int8, int16, float16, float32)"
     ),
     show: bool = typer.Option(
         False, "--show", "-s",
@@ -133,8 +218,6 @@ def config_command(
     updates = {}
     if transcriptions_path:
         updates['transcriptions_path'] = transcriptions_path.expanduser().absolute()
-    if artifacts_path:
-        updates['artifacts_path'] = artifacts_path.expanduser().absolute()
     if vectordb_path:
         updates['vectordb_path'] = vectordb_path.expanduser().absolute()
     if whisper_model:
@@ -143,6 +226,18 @@ def config_command(
             console.print(f"[red]Error:[/red] Invalid model. Choose from: {', '.join(valid_models)}")
             raise typer.Exit(1)
         updates['whisper_model'] = whisper_model
+    if whisper_device:
+        valid_devices = ["cpu", "cuda", "auto"]
+        if whisper_device not in valid_devices:
+            console.print(f"[red]Error:[/red] Invalid device. Choose from: {', '.join(valid_devices)}")
+            raise typer.Exit(1)
+        updates['whisper_device'] = whisper_device
+    if whisper_compute_type:
+        valid_compute_types = ["int8", "int16", "float16", "float32"]
+        if whisper_compute_type not in valid_compute_types:
+            console.print(f"[red]Error:[/red] Invalid compute type. Choose from: {', '.join(valid_compute_types)}")
+            raise typer.Exit(1)
+        updates['whisper_compute_type'] = whisper_compute_type
 
     if updates:
         config_manager.update_config(**updates)
@@ -170,11 +265,6 @@ def _display_config(config):
         "Where transcription files are saved"
     )
     table.add_row(
-        "Artifacts Path",
-        str(config.artifacts_path),
-        "Where original files are stored"
-    )
-    table.add_row(
         "Vector DB Path",
         str(config.vectordb_path),
         "Where vector database is stored"
@@ -183,6 +273,16 @@ def _display_config(config):
         "Whisper Model",
         config.whisper_model,
         "Speech-to-text model size"
+    )
+    table.add_row(
+        "Whisper Device",
+        config.whisper_device,
+        "Device to run Whisper on"
+    )
+    table.add_row(
+        "Whisper Compute Type",
+        config.whisper_compute_type,
+        "Compute precision for Whisper"
     )
     table.add_row(
         "Chunk Size",
