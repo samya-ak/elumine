@@ -10,6 +10,7 @@ from .commands import (
     summarize_command,
     notes_command,
     config_command,
+    ingest_command,
 )
 
 console = Console()
@@ -28,6 +29,7 @@ app.command("list", help="📋 List all processed artifacts")(list_command)
 app.command("summarize", help="📝 Generate summary of an artifact")(summarize_command)
 app.command("notes", help="📓 Create structured notes from an artifact")(notes_command)
 app.command("config", help="⚙️ Configure Elumine settings")(config_command)
+app.command("ingest", help="📥 Ingest up to 5 files (audio, video, or text)")(ingest_command)
 
 
 @app.callback(invoke_without_command=True)

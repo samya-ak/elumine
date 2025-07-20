@@ -13,7 +13,7 @@ console = Console()
 
 def handle_config(
     transcriptions_path: Optional[Path] = None,
-    vectordb_path: Optional[Path] = None,
+    db_path: Optional[Path] = None,
     whisper_model: Optional[str] = None,
     whisper_device: Optional[str] = None,
     whisper_compute_type: Optional[str] = None,
@@ -34,8 +34,8 @@ def handle_config(
     if transcriptions_path:
         updates['transcriptions_path'] = transcriptions_path.expanduser().absolute()
 
-    if vectordb_path:
-        updates['vectordb_path'] = vectordb_path.expanduser().absolute()
+    if db_path:
+        updates['db_path'] = db_path.expanduser().absolute()
 
     if whisper_model:
         valid_models = ["tiny", "base", "small", "medium", "large"]
@@ -84,9 +84,9 @@ def display_config(config: ElumineConfig) -> None:
         "Where transcription files are saved"
     )
     table.add_row(
-        "Vector DB Path",
-        str(config.vectordb_path),
-        "Where vector database is stored"
+        "DB Path",
+        str(config.db_path),
+        "Where database is stored"
     )
     table.add_row(
         "Whisper Model",

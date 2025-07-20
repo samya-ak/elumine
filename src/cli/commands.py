@@ -8,6 +8,7 @@ from .handlers.ui import display_welcome
 from .handlers.transcription import handle_transcribe
 from .handlers.config import handle_config
 from .handlers.rag import handle_query, handle_list, handle_summarize, handle_notes
+from .handlers.ingest import handle_ingest
 
 
 def transcribe_command(
@@ -53,9 +54,9 @@ def config_command(
         None, "--transcriptions-path", "-t",
         help="Set path for transcription files"
     ),
-    vectordb_path: Optional[Path] = typer.Option(
-        None, "--vectordb-path", "-v",
-        help="Set path for vector database"
+    db_path: Optional[Path] = typer.Option(
+        None, "--db-path", "-db",
+        help="Set path for Elumine databases (SQLite, ChromaDB)"
     ),
     whisper_model: Optional[str] = typer.Option(
         None, "--whisper-model", "-m",
@@ -82,7 +83,7 @@ def config_command(
     try:
         handle_config(
             transcriptions_path=transcriptions_path,
-            vectordb_path=vectordb_path,
+            db_path=db_path,
             whisper_model=whisper_model,
             whisper_device=whisper_device,
             whisper_compute_type=whisper_compute_type,
@@ -90,4 +91,20 @@ def config_command(
             reset=reset
         )
     except ValueError:
+        raise typer.Exit(1)
+
+def ingest_command(
+    files: list[str] = typer.Argument(..., help="Paths to up to 5 files (audio, video, or text) to ingest"),
+    batch_name: str = typer.Option(None, "--batch-name", "-b", help="Optional batch name for this ingest"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show processing results verbosely")
+):
+    """📥 Ingest up to 5 files (audio, video, or text), transcribe if needed, store metadata in SQLite and text in ChromaDB."""
+    try:
+        if len(files) > 5:
+            typer.echo("❌ You can ingest up to 5 files at a time.")
+            raise typer.Exit(1)
+
+        handle_ingest(files, batch_name, verbose)
+    except Exception as e:
+        typer.echo(f"❌ Error: {e}")
         raise typer.Exit(1)

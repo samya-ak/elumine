@@ -62,10 +62,6 @@ elumine/
 │   │   └── storage.py      # Database operations
 │   ├── models/              # Pydantic data models
 │   └── utils/               # Helper functions
-├── data/
-│   ├── artifacts/           # Original files
-│   ├── transcriptions/      # Transcription files
-│   └── vectordb/           # Vector embeddings
 ├── pyproject.toml
 └── README.md
 ```
