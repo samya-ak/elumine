@@ -4,8 +4,10 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+from rich.table import Table
 from rich import box
 from pathlib import Path
+from typing import Optional
 
 console = Console()
 
@@ -89,3 +91,106 @@ def notes_command(
 
     # TODO: Generate notes
     console.print("[yellow]🚧 Notes feature coming soon![/yellow]")
+
+
+def config_command(
+    transcriptions_path: Optional[Path] = typer.Option(
+        None, "--transcriptions-path", "-t",
+        help="Set path for transcription files"
+    ),
+    artifacts_path: Optional[Path] = typer.Option(
+        None, "--artifacts-path", "-a",
+        help="Set path for original uploaded files"
+    ),
+    vectordb_path: Optional[Path] = typer.Option(
+        None, "--vectordb-path", "-v",
+        help="Set path for vector database"
+    ),
+    whisper_model: Optional[str] = typer.Option(
+        None, "--whisper-model", "-m",
+        help="Set Whisper model (tiny, base, small, medium, large)"
+    ),
+    show: bool = typer.Option(
+        False, "--show", "-s",
+        help="Show current configuration"
+    ),
+    reset: bool = typer.Option(
+        False, "--reset", "-r",
+        help="Reset configuration to defaults"
+    )
+):
+    """⚙️ Configure Elumine settings."""
+    from src.config import config_manager
+
+    if reset:
+        from src.config import ElumineConfig
+        config_manager.config = ElumineConfig()
+        config_manager.save_config()
+        console.print("[green]✅ Configuration reset to defaults[/green]")
+        return
+
+    # Update configuration if any options provided
+    updates = {}
+    if transcriptions_path:
+        updates['transcriptions_path'] = transcriptions_path.expanduser().absolute()
+    if artifacts_path:
+        updates['artifacts_path'] = artifacts_path.expanduser().absolute()
+    if vectordb_path:
+        updates['vectordb_path'] = vectordb_path.expanduser().absolute()
+    if whisper_model:
+        valid_models = ["tiny", "base", "small", "medium", "large"]
+        if whisper_model not in valid_models:
+            console.print(f"[red]Error:[/red] Invalid model. Choose from: {', '.join(valid_models)}")
+            raise typer.Exit(1)
+        updates['whisper_model'] = whisper_model
+
+    if updates:
+        config_manager.update_config(**updates)
+        console.print("[green]✅ Configuration updated[/green]")
+
+        # Create directories if they don't exist
+        config_manager.ensure_directories_exist()
+        console.print("[dim]📁 Created necessary directories[/dim]")
+
+    # Show current configuration (default behavior or when --show is used)
+    if show or not updates:
+        _display_config(config_manager.config)
+
+
+def _display_config(config):
+    """Display current configuration in a table."""
+    table = Table(title="🔧 Elumine Configuration", box=box.ROUNDED)
+    table.add_column("Setting", style="cyan", no_wrap=True)
+    table.add_column("Value", style="green")
+    table.add_column("Description", style="dim")
+
+    table.add_row(
+        "Transcriptions Path",
+        str(config.transcriptions_path),
+        "Where transcription files are saved"
+    )
+    table.add_row(
+        "Artifacts Path",
+        str(config.artifacts_path),
+        "Where original files are stored"
+    )
+    table.add_row(
+        "Vector DB Path",
+        str(config.vectordb_path),
+        "Where vector database is stored"
+    )
+    table.add_row(
+        "Whisper Model",
+        config.whisper_model,
+        "Speech-to-text model size"
+    )
+    table.add_row(
+        "Chunk Size",
+        str(config.chunk_size),
+        "Text chunk size for embeddings"
+    )
+
+    console.print()
+    console.print(table)
+    console.print()
+    console.print("[dim]💡 Use [bold]elumine config --help[/bold] to see configuration options[/dim]")
