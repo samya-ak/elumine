@@ -49,8 +49,18 @@ def save_transcription(result: Dict[str, Any], transcriptions_path: Path) -> Tup
     return json_file, text_file
 
 
-def handle_transcribe(input_path: str, name: str = None) -> None:
-    """Handle transcription of audio/video files or YouTube URLs."""
+
+def handle_transcribe(input_path: str, name: str = None, return_text: bool = False) -> str:
+    """Handle transcription of audio/video files or YouTube URLs.
+
+    Args:
+        input_path: Path to media file or YouTube URL
+        name: Custom name for the artifact
+        return_text: If True, return just the transcribed text instead of saving files
+
+    Returns:
+        The transcribed text if return_text=True, otherwise None
+    """
     try:
         # Load configuration
         config = config_manager.config
@@ -66,6 +76,10 @@ def handle_transcribe(input_path: str, name: str = None) -> None:
 
         # Transcribe the input
         result = transcription_service.transcribe_input(input_path, name)
+
+        # If return_text is True, just return the transcribed text
+        if return_text:
+            return result['full_text']
 
         # Display results
         console.print(f"[green]✅ Successfully transcribed:[/green] {result['name']}")
@@ -88,6 +102,8 @@ def handle_transcribe(input_path: str, name: str = None) -> None:
         console.print(f"[green]💾 Transcription saved to:[/green]")
         console.print(f"  [dim]JSON:[/dim] {json_file}")
         console.print(f"  [dim]Text:[/dim] {text_file}")
+
+        return None
 
     except FileNotFoundError as e:
         console.print(f"[red]Error:[/red] {e}")

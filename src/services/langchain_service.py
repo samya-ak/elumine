@@ -25,11 +25,15 @@ class LangChainService:
         elif not os.getenv("OPENAI_API_KEY"):
             raise ValueError(
                 "OpenAI API key required. Set via config: "
-                "elumine config --openai-api-key YOUR_KEY or set OPENAI_API_KEY env var"
+                "elumine config --openai-api-key YOUR_KEY or set OPENAI_API_KEY env var. "
+                "You can also set the LLM model: elumine config --llm-model gpt-4"
             )
 
-        self.embeddings = OpenAIEmbeddings()
-        self.llm = ChatOpenAI(temperature=0)
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+        self.llm = ChatOpenAI(
+            model=self.config.llm_model,
+            temperature=0
+        )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.config.chunk_size,
             chunk_overlap=200,

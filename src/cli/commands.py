@@ -74,6 +74,10 @@ def config_command(
         None, "--openai-api-key", "-k",
         help="Set OpenAI API key for embeddings and completions"
     ),
+    llm_model: Optional[str] = typer.Option(
+        None, "--llm-model", "-l",
+        help="Set OpenAI model for chat completions (e.g., gpt-3.5-turbo, gpt-4)"
+    ),
     show: bool = typer.Option(
         False, "--show", "-s",
         help="Show current configuration"
@@ -92,6 +96,7 @@ def config_command(
             whisper_device=whisper_device,
             whisper_compute_type=whisper_compute_type,
             openai_api_key=openai_api_key,
+            llm_model=llm_model,
             show=show,
             reset=reset
         )
@@ -99,17 +104,17 @@ def config_command(
         raise typer.Exit(1)
 
 def ingest_command(
-    files: list[str] = typer.Argument(..., help="Paths to up to 5 files (audio, video, or text) to ingest"),
+    medias: list[str] = typer.Argument(..., help="Paths to up to 5 media files (audio, video, text) or YouTube URLs to ingest"),
     batch_name: str = typer.Option(None, "--batch-name", "-b", help="Optional batch name for this ingest"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show processing results verbosely")
 ):
-    """📥 Ingest up to 5 files (audio, video, or text), transcribe if needed, store metadata in SQLite and text in ChromaDB."""
+    """📥 Ingest up to 5 media files or YouTube URLs, transcribe if needed, store metadata in SQLite and text in ChromaDB."""
     try:
-        if len(files) > 5:
-            typer.echo("❌ You can ingest up to 5 files at a time.")
+        if len(medias) > 5:
+            typer.echo("❌ You can ingest up to 5 media items at a time.")
             raise typer.Exit(1)
 
-        handle_ingest(files, batch_name, verbose)
+        handle_ingest(medias, batch_name, verbose)
     except Exception as e:
         typer.echo(f"❌ Error: {e}")
         raise typer.Exit(1)

@@ -18,6 +18,7 @@ def handle_config(
     whisper_device: Optional[str] = None,
     whisper_compute_type: Optional[str] = None,
     openai_api_key: Optional[str] = None,
+    llm_model: Optional[str] = None,
     show: bool = False,
     reset: bool = False
 ) -> None:
@@ -61,6 +62,19 @@ def handle_config(
 
     if openai_api_key:
         updates['openai_api_key'] = openai_api_key
+
+    if llm_model:
+        # Basic validation for common OpenAI models
+        valid_models = [
+            "gpt-3.5-turbo", "gpt-3.5-turbo-16k",
+            "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini",
+            "gpt-4-32k", "gpt-4-1106-preview", "gpt-4-0125-preview"
+        ]
+        if llm_model not in valid_models:
+            console.print(f"[yellow]Warning:[/yellow] '{llm_model}' is not a recognized OpenAI model.")
+            console.print(f"[dim]Common models: {', '.join(valid_models[:4])}...[/dim]")
+            # Still allow custom models in case of new releases
+        updates['llm_model'] = llm_model
 
     if updates:
         config_manager.update_config(**updates)
@@ -116,6 +130,11 @@ def display_config(config: ElumineConfig) -> None:
         "OpenAI API Key",
         "***" if config.openai_api_key else "Not set",
         "API key for OpenAI services"
+    )
+    table.add_row(
+        "LLM Model",
+        config.llm_model,
+        "OpenAI model for chat completions"
     )
 
     console.print()

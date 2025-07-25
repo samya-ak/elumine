@@ -37,6 +37,10 @@ class ElumineConfig(BaseModel):
         default=None,
         description="OpenAI API key for embeddings and completions"
     )
+    llm_model: str = Field(
+        default="gpt-3.5-turbo",
+        description="OpenAI model name for chat completions"
+    )
 
     class Config:
         """Pydantic config."""
