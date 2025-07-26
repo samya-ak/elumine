@@ -1,5 +1,8 @@
 """RAG (Retrieval Augmented Generation) command handlers."""
 
+from pathlib import Path
+from datetime import datetime
+from typing import Optional
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -90,7 +93,7 @@ def handle_list() -> None:
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
 
-def handle_summarize(artifact_id: str) -> None:
+def handle_summarize(artifact_id: str, save_dir: Optional[Path] = None) -> None:
     """Handle generating summaries of artifacts."""
     try:
         chroma_service = get_chroma_service()
@@ -118,6 +121,33 @@ def handle_summarize(artifact_id: str) -> None:
         with console.status("Generating summary..."):
             summary = chroma_service.generate_summary(results)
 
+        # Save to file if save_dir is provided
+        if save_dir:
+            if not save_dir.exists():
+                console.print(f"[red]Error:[/red] Directory {save_dir} does not exist")
+                return
+            if not save_dir.is_dir():
+                console.print(f"[red]Error:[/red] {save_dir} is not a directory")
+                return
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"summary_{artifact['filename']}_{timestamp}.md"
+            file_path = save_dir / filename
+
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(f"# Summary: {artifact['filename']}\n\n")
+                    f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"**Artifact ID:** {artifact_id}\n")
+                    f.write(f"**Source:** {artifact.get('source', 'N/A')}\n\n")
+                    f.write("---\n\n")
+                    f.write(summary)
+
+                console.print(f"[green]Summary saved to:[/green] {file_path}")
+            except Exception as e:
+                console.print(f"[red]Error saving file:[/red] {e}")
+                return
+
         # Display the summary
         panel = Panel(
             Markdown(summary),
@@ -132,7 +162,7 @@ def handle_summarize(artifact_id: str) -> None:
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
 
-def handle_notes(artifact_id: str) -> None:
+def handle_notes(artifact_id: str, save_dir: Optional[Path] = None) -> None:
     """Handle creating structured notes from artifacts."""
     try:
         chroma_service = get_chroma_service()
@@ -159,6 +189,33 @@ def handle_notes(artifact_id: str) -> None:
         # Generate structured notes
         with console.status("Creating structured notes..."):
             notes = chroma_service.generate_notes(results)
+
+        # Save to file if save_dir is provided
+        if save_dir:
+            if not save_dir.exists():
+                console.print(f"[red]Error:[/red] Directory {save_dir} does not exist")
+                return
+            if not save_dir.is_dir():
+                console.print(f"[red]Error:[/red] {save_dir} is not a directory")
+                return
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"notes_{artifact['filename']}_{timestamp}.md"
+            file_path = save_dir / filename
+
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(f"# Notes: {artifact['filename']}\n\n")
+                    f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"**Artifact ID:** {artifact_id}\n")
+                    f.write(f"**Source:** {artifact.get('source', 'N/A')}\n\n")
+                    f.write("---\n\n")
+                    f.write(notes)
+
+                console.print(f"[green]Notes saved to:[/green] {file_path}")
+            except Exception as e:
+                console.print(f"[red]Error saving file:[/red] {e}")
+                return
 
         # Display the notes
         panel = Panel(

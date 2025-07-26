@@ -84,37 +84,6 @@ class ChromaService:
 
         return batch_id
 
-    def get_batch_info(self, batch_id: int) -> Optional[Dict[str, Any]]:
-        """Get batch information by ID."""
-        vectorstore = self.get_vectorstore()
-
-        try:
-            results = vectorstore.similarity_search(
-                "",
-                k=1,
-                filter={"type": "batch", "batch_id": batch_id}
-            )
-            if results:
-                return results[0].metadata
-        except:
-            pass
-        return None
-
-    def list_batches(self) -> List[Dict[str, Any]]:
-        """List all batches."""
-        vectorstore = self.get_vectorstore()
-
-        try:
-            # Get all batch documents
-            results = vectorstore.similarity_search(
-                "",
-                k=1000,  # Large number to get all batches
-                filter={"type": "batch"}
-            )
-            return [doc.metadata for doc in results]
-        except:
-            return []
-
     def create_documents(
         self,
         text: str,
@@ -296,10 +265,6 @@ class ChromaService:
             search_filter = base_filter
 
         return vectorstore.similarity_search(query, k=k, filter=search_filter)
-
-    def search_by_batch(self, query: str, batch_id: int, k: int = 5) -> List[Document]:
-        """Search for documents within a specific batch."""
-        return self.search_similar(query, k=k, filter_dict={"batch_id": batch_id})
 
     def search_by_artifact(self, query: str, artifact_id: str, k: int = 5) -> List[Document]:
         """Search for documents within a specific artifact."""

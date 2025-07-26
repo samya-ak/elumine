@@ -36,17 +36,19 @@ def list_command():
 
 
 def summarize_command(
-    artifact_id: str = typer.Argument(..., help="ID of the artifact to summarize")
+    artifact_id: str = typer.Argument(..., help="ID of the artifact to summarize"),
+    save: Optional[Path] = typer.Option(None, "--save", help="Directory path to save the summary as a markdown file")
 ):
     """📝 Generate summary of an artifact."""
-    handle_summarize(artifact_id)
+    handle_summarize(artifact_id, save)
 
 
 def notes_command(
-    artifact_id: str = typer.Argument(..., help="ID of the artifact to create notes from")
+    artifact_id: str = typer.Argument(..., help="ID of the artifact to create notes from"),
+    save: Optional[Path] = typer.Option(None, "--save", help="Directory path to save the notes as a markdown file")
 ):
     """📓 Create structured notes from an artifact."""
-    handle_notes(artifact_id)
+    handle_notes(artifact_id, save)
 
 
 def config_command(
@@ -106,7 +108,6 @@ def config_command(
 def ingest_command(
     medias: list[str] = typer.Argument(..., help="Paths to up to 5 media files (audio, video, text) or YouTube URLs to ingest"),
     batch_name: str = typer.Option(None, "--batch-name", "-b", help="Optional batch name for this ingest"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show processing results verbosely")
 ):
     """📥 Ingest up to 5 media files or YouTube URLs, transcribe if needed, store in ChromaDB."""
     try:
@@ -114,7 +115,7 @@ def ingest_command(
             typer.echo("❌ You can ingest up to 5 media items at a time.")
             raise typer.Exit(1)
 
-        handle_ingest(medias, batch_name, verbose)
+        handle_ingest(medias, batch_name)
     except Exception as e:
         typer.echo(f"❌ Error: {e}")
         raise typer.Exit(1)
