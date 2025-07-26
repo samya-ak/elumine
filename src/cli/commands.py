@@ -36,17 +36,19 @@ def list_command():
 
 
 def summarize_command(
-    artifact_id: str = typer.Argument(..., help="ID of the artifact to summarize")
+    artifact_id: str = typer.Argument(..., help="ID of the artifact to summarize"),
+    save: Optional[Path] = typer.Option(None, "--save", help="Directory path to save the summary as a markdown file")
 ):
     """📝 Generate summary of an artifact."""
-    handle_summarize(artifact_id)
+    handle_summarize(artifact_id, save)
 
 
 def notes_command(
-    artifact_id: str = typer.Argument(..., help="ID of the artifact to create notes from")
+    artifact_id: str = typer.Argument(..., help="ID of the artifact to create notes from"),
+    save: Optional[Path] = typer.Option(None, "--save", help="Directory path to save the notes as a markdown file")
 ):
     """📓 Create structured notes from an artifact."""
-    handle_notes(artifact_id)
+    handle_notes(artifact_id, save)
 
 
 def config_command(
