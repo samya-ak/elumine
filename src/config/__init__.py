@@ -15,7 +15,7 @@ class ElumineConfig(BaseModel):
     )
     db_path: Path = Field(
         default_factory=lambda: Path.home() / "elumine" / "db",
-        description="Path where all Elumine databases (SQLite, ChromaDB) will be stored"
+        description="Path where Elumine ChromaDB database will be stored"
     )
     whisper_model: str = Field(
         default="base",

@@ -56,7 +56,7 @@ def config_command(
     ),
     db_path: Optional[Path] = typer.Option(
         None, "--db-path", "-db",
-        help="Set path for Elumine databases (SQLite, ChromaDB)"
+        help="Set path for Elumine databases (ChromaDB)"
     ),
     whisper_model: Optional[str] = typer.Option(
         None, "--whisper-model", "-m",
@@ -108,7 +108,7 @@ def ingest_command(
     batch_name: str = typer.Option(None, "--batch-name", "-b", help="Optional batch name for this ingest"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show processing results verbosely")
 ):
-    """📥 Ingest up to 5 media files or YouTube URLs, transcribe if needed, store metadata in SQLite and text in ChromaDB."""
+    """📥 Ingest up to 5 media files or YouTube URLs, transcribe if needed, store in ChromaDB."""
     try:
         if len(medias) > 5:
             typer.echo("❌ You can ingest up to 5 media items at a time.")

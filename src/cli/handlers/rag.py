@@ -5,39 +5,36 @@ from rich.table import Table
 from rich.panel import Panel
 from rich import box
 from rich.markdown import Markdown
-from src.db.sqlite import get_db
-from src.services.langchain_service import get_langchain_service
+from src.services.chroma_service import get_chroma_service
 
 console = Console()
 
 def handle_query(artifact_id: str, question: str) -> None:
     """Handle querying artifacts with questions."""
     try:
-        db = get_db()
-        langchain_service = get_langchain_service()
+        chroma_service = get_chroma_service()
 
-        # Get artifact from database
-        artifacts = list(db["artifacts"].rows_where("id = ?", [artifact_id]))
-        if not artifacts:
+        # Get artifact from ChromaDB
+        artifact = chroma_service.get_artifact_by_id(artifact_id)
+        if not artifact:
             console.print(f"[red]Error:[/red] Artifact with ID {artifact_id} not found")
             return
 
-        artifact = artifacts[0]
         if artifact["status"] != "ingested":
             console.print(f"[red]Error:[/red] Artifact {artifact_id} is not properly ingested")
             return
 
         console.print(f"[blue]Querying artifact '{artifact['filename']}':[/blue] {question}")
 
-        # Search for relevant documents
-        results = langchain_service.search_by_filename(question, artifact["filename"], k=5)
+        # Search for relevant documents within this artifact
+        results = chroma_service.search_by_artifact(question, artifact_id, k=5)
 
         if not results:
             console.print("[yellow]No relevant information found for your question.[/yellow]")
             return
 
         # Generate answer using RAG
-        answer = langchain_service.generate_answer(question, results)
+        answer = chroma_service.generate_answer(question, results)
 
         # Display the answer
         panel = Panel(
@@ -56,10 +53,10 @@ def handle_query(artifact_id: str, question: str) -> None:
 def handle_list() -> None:
     """Handle listing all processed artifacts."""
     try:
-        db = get_db()
+        chroma_service = get_chroma_service()
 
         # Get all artifacts
-        artifacts = list(db["artifacts"].rows)
+        artifacts = chroma_service.list_artifacts()
 
         if not artifacts:
             console.print("[dim]No artifacts found. Use [bold]elumine ingest[/bold] to add some![/dim]")
@@ -67,20 +64,20 @@ def handle_list() -> None:
 
         # Create table
         table = Table(title="📋 Available Artifacts", box=box.ROUNDED)
-        table.add_column("ID", style="cyan", width=8)
+        table.add_column("Artifact ID", style="cyan")
         table.add_column("Filename", style="green")
-        table.add_column("Type", style="blue", width=10)
-        table.add_column("Status", style="yellow", width=12)
+        table.add_column("Type", style="blue", width=12)
+        table.add_column("Source Type", style="yellow", width=12)
         table.add_column("Chunks", style="magenta", width=8)
         table.add_column("Batch", style="dim", width=8)
 
         for artifact in artifacts:
             status_style = "green" if artifact["status"] == "ingested" else "red"
             table.add_row(
-                str(artifact["id"]),
+                artifact["artifact_id"],
                 artifact["filename"],
-                artifact["filetype"],
-                f"[{status_style}]{artifact['status']}[/{status_style}]",
+                artifact.get("filetype", ""),
+                artifact.get("source_type", ""),
                 str(artifact.get("chunk_count", 0)),
                 str(artifact["batch_id"])
             )
@@ -96,16 +93,14 @@ def handle_list() -> None:
 def handle_summarize(artifact_id: str) -> None:
     """Handle generating summaries of artifacts."""
     try:
-        db = get_db()
-        langchain_service = get_langchain_service()
+        chroma_service = get_chroma_service()
 
-        # Get artifact from database
-        artifacts = list(db["artifacts"].rows_where("id = ?", [artifact_id]))
-        if not artifacts:
+        # Get artifact from ChromaDB
+        artifact = chroma_service.get_artifact_by_id(artifact_id)
+        if not artifact:
             console.print(f"[red]Error:[/red] Artifact with ID {artifact_id} not found")
             return
 
-        artifact = artifacts[0]
         if artifact["status"] != "ingested":
             console.print(f"[red]Error:[/red] Artifact {artifact_id} is not properly ingested")
             return
@@ -113,7 +108,7 @@ def handle_summarize(artifact_id: str) -> None:
         console.print(f"[green]Generating summary for:[/green] {artifact['filename']}")
 
         # Get all documents for this artifact
-        results = langchain_service.search_by_filename("", artifact["filename"], k=50)
+        results = chroma_service.get_all_chunks_for_artifact(artifact_id)
 
         if not results:
             console.print("[yellow]No content found for summarization.[/yellow]")
@@ -121,7 +116,7 @@ def handle_summarize(artifact_id: str) -> None:
 
         # Generate summary
         with console.status("Generating summary..."):
-            summary = langchain_service.generate_summary(results)
+            summary = chroma_service.generate_summary(results)
 
         # Display the summary
         panel = Panel(
@@ -140,16 +135,14 @@ def handle_summarize(artifact_id: str) -> None:
 def handle_notes(artifact_id: str) -> None:
     """Handle creating structured notes from artifacts."""
     try:
-        db = get_db()
-        langchain_service = get_langchain_service()
+        chroma_service = get_chroma_service()
 
-        # Get artifact from database
-        artifacts = list(db["artifacts"].rows_where("id = ?", [artifact_id]))
-        if not artifacts:
+        # Get artifact from ChromaDB
+        artifact = chroma_service.get_artifact_by_id(artifact_id)
+        if not artifact:
             console.print(f"[red]Error:[/red] Artifact with ID {artifact_id} not found")
             return
 
-        artifact = artifacts[0]
         if artifact["status"] != "ingested":
             console.print(f"[red]Error:[/red] Artifact {artifact_id} is not properly ingested")
             return
@@ -157,7 +150,7 @@ def handle_notes(artifact_id: str) -> None:
         console.print(f"[green]Creating structured notes for:[/green] {artifact['filename']}")
 
         # Get all documents for this artifact
-        results = langchain_service.search_by_filename("", artifact["filename"], k=50)
+        results = chroma_service.get_all_chunks_for_artifact(artifact_id)
 
         if not results:
             console.print("[yellow]No content found for note generation.[/yellow]")
@@ -165,7 +158,7 @@ def handle_notes(artifact_id: str) -> None:
 
         # Generate structured notes
         with console.status("Creating structured notes..."):
-            notes = langchain_service.generate_notes(results)
+            notes = chroma_service.generate_notes(results)
 
         # Display the notes
         panel = Panel(
