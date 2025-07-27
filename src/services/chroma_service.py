@@ -84,37 +84,6 @@ class ChromaService:
 
         return batch_id
 
-    def get_batch_info(self, batch_id: int) -> Optional[Dict[str, Any]]:
-        """Get batch information by ID."""
-        vectorstore = self.get_vectorstore()
-
-        try:
-            results = vectorstore.similarity_search(
-                "",
-                k=1,
-                filter={"type": "batch", "batch_id": batch_id}
-            )
-            if results:
-                return results[0].metadata
-        except:
-            pass
-        return None
-
-    def list_batches(self) -> List[Dict[str, Any]]:
-        """List all batches."""
-        vectorstore = self.get_vectorstore()
-
-        try:
-            # Get all batch documents
-            results = vectorstore.similarity_search(
-                "",
-                k=1000,  # Large number to get all batches
-                filter={"type": "batch"}
-            )
-            return [doc.metadata for doc in results]
-        except:
-            return []
-
     def create_documents(
         self,
         text: str,
@@ -167,172 +136,76 @@ class ChromaService:
         # Add documents with embeddings
         vectorstore.add_documents(documents, ids=ids)
 
-        # Update batch artifact count
-        if documents:
-            batch_id = documents[0].metadata.get("batch_id")
-            if batch_id:
-                self._update_batch_artifact_count(batch_id)
-
         return ids
 
-    def _update_batch_artifact_count(self, batch_id: int):
-        """Update the artifact count for a batch."""
-        # Get unique artifact IDs for this batch
-        artifacts = self.list_artifacts_for_batch(batch_id)
-        artifact_count = len(artifacts)
-
-        # Update batch metadata (this is a simplified approach)
-        # In a real implementation, you might want to update the batch document
-        # For now, we'll just track this in the artifact metadata
-
-    def get_artifact_by_id(self, artifact_id: str) -> Optional[Dict[str, Any]]:
-        """Get artifact information by artifact ID."""
+    def _get_chunks(self, filter_dict: Optional[Dict[str, Any]] = None, k: int = 10000) -> List[Document]:
+        """Internal method to get chunks with optional filtering."""
         vectorstore = self.get_vectorstore()
 
+        # Build filter - always exclude batch documents
+        base_filter = {"type": {"$eq": "artifact_chunk"}}
+
+        if filter_dict:
+            filters = [base_filter]
+            for key, value in filter_dict.items():
+                filters.append({key: {"$eq": value}})
+            search_filter = {"$and": filters}
+        else:
+            search_filter = base_filter
+
         try:
-            # Use ChromaDB where clause format for complex filters
-            results = vectorstore.similarity_search(
-                "document content text",  # Use a generic query
-                k=100,
-                filter={"$and": [{"type": {"$eq": "artifact_chunk"}}, {"artifact_id": {"$eq": artifact_id}}]}
-            )
-            if results:
-                # Return the metadata from the first chunk (all chunks share core metadata)
-                metadata = results[0].metadata.copy()
-
-                # Count chunks for this artifact
-                metadata["chunk_count"] = len(results)
-
-                return metadata
-        except Exception as e:
-            print(f"Error getting artifact: {e}")
-            # Fallback: try simpler filter
+            return vectorstore.similarity_search("", k=k, filter=search_filter)
+        except Exception:
+            # Fallback with simpler filter if complex filter fails
             try:
-                results = vectorstore.similarity_search(
-                    "document content text",
-                    k=100,
-                    filter={"artifact_id": artifact_id}
-                )
-                if results:
-                    # Filter to only artifact chunks in code
-                    artifact_chunks = [r for r in results if r.metadata.get("type") == "artifact_chunk"]
-                    if artifact_chunks:
-                        metadata = artifact_chunks[0].metadata.copy()
-                        metadata["chunk_count"] = len(artifact_chunks)
-                        return metadata
-            except Exception as e2:
-                print(f"Fallback error: {e2}")
-        return None
+                results = vectorstore.similarity_search("", k=k, filter=filter_dict or {})
+                return [r for r in results if r.metadata.get("type") == "artifact_chunk"]
+            except Exception:
+                return []
+
+    def _group_chunks_by_artifact(self, chunks: List[Document]) -> Dict[str, Dict[str, Any]]:
+        """Group chunks by artifact_id and return artifact metadata with chunk counts."""
+        artifacts = {}
+        for chunk in chunks:
+            artifact_id = chunk.metadata.get("artifact_id")
+            if artifact_id and artifact_id not in artifacts:
+                metadata = chunk.metadata.copy()
+                metadata["chunk_count"] = sum(1 for c in chunks if c.metadata.get("artifact_id") == artifact_id)
+                artifacts[artifact_id] = metadata
+        return artifacts
 
     def list_artifacts(self) -> List[Dict[str, Any]]:
         """List all artifacts (grouped by artifact_id)."""
-        vectorstore = self.get_vectorstore()
-
-        try:
-            # Get all artifact chunks
-            results = vectorstore.similarity_search(
-                "",
-                k=10000,  # Large number to get all chunks
-                filter={"type": "artifact_chunk"}
-            )
-
-            # Group by artifact_id
-            artifacts = {}
-            for doc in results:
-                artifact_id = doc.metadata.get("artifact_id")
-                if artifact_id and artifact_id not in artifacts:
-                    metadata = doc.metadata.copy()
-                    # Count chunks for this artifact
-                    chunk_count = len([d for d in results if d.metadata.get("artifact_id") == artifact_id])
-                    metadata["chunk_count"] = chunk_count
-                    artifacts[artifact_id] = metadata
-
-            return list(artifacts.values())
-        except:
-            return []
-
-    def list_artifacts_for_batch(self, batch_id: int) -> List[Dict[str, Any]]:
-        """List all artifacts for a specific batch."""
-        vectorstore = self.get_vectorstore()
-
-        try:
-            results = vectorstore.similarity_search(
-                "",
-                k=10000,
-                filter={"type": "artifact_chunk", "batch_id": batch_id}
-            )
-
-            # Group by artifact_id
-            artifacts = {}
-            for doc in results:
-                artifact_id = doc.metadata.get("artifact_id")
-                if artifact_id and artifact_id not in artifacts:
-                    metadata = doc.metadata.copy()
-                    chunk_count = len([d for d in results if d.metadata.get("artifact_id") == artifact_id])
-                    metadata["chunk_count"] = chunk_count
-                    artifacts[artifact_id] = metadata
-
-            return list(artifacts.values())
-        except:
-            return []
+        chunks = self._get_chunks()
+        artifacts = self._group_chunks_by_artifact(chunks)
+        return list(artifacts.values())
 
     def search_similar(self, query: str, k: int = 5, filter_dict: Optional[dict] = None) -> List[Document]:
         """Search for similar documents in the vectorstore."""
         vectorstore = self.get_vectorstore()
 
-        # Always filter out batch documents from similarity search
+        # Build filter - always exclude batch documents
         base_filter = {"type": {"$eq": "artifact_chunk"}}
 
         if filter_dict:
-            # Convert simple filter dict to ChromaDB format
-            chroma_filters = []
-            chroma_filters.append(base_filter)
-
+            filters = [base_filter]
             for key, value in filter_dict.items():
-                chroma_filters.append({key: {"$eq": value}})
-
-            search_filter = {"$and": chroma_filters}
+                filters.append({key: {"$eq": value}})
+            search_filter = {"$and": filters}
         else:
             search_filter = base_filter
 
         return vectorstore.similarity_search(query, k=k, filter=search_filter)
-
-    def search_by_batch(self, query: str, batch_id: int, k: int = 5) -> List[Document]:
-        """Search for documents within a specific batch."""
-        return self.search_similar(query, k=k, filter_dict={"batch_id": batch_id})
 
     def search_by_artifact(self, query: str, artifact_id: str, k: int = 5) -> List[Document]:
         """Search for documents within a specific artifact."""
         return self.search_similar(query, k=k, filter_dict={"artifact_id": artifact_id})
 
     def get_all_chunks_for_artifact(self, artifact_id: str) -> List[Document]:
-        """Get all chunks for a specific artifact."""
-        vectorstore = self.get_vectorstore()
-
-        try:
-            results = vectorstore.similarity_search(
-                "document content text",  # Use generic query
-                k=10000,
-                filter={"$and": [{"type": {"$eq": "artifact_chunk"}}, {"artifact_id": {"$eq": artifact_id}}]}
-            )
-            # Sort by chunk_index
-            results.sort(key=lambda x: x.metadata.get("chunk_index", 0))
-            return results
-        except Exception as e:
-            print(f"Error getting chunks: {e}")
-            # Fallback approach
-            try:
-                results = vectorstore.similarity_search(
-                    "document content text",
-                    k=10000,
-                    filter={"artifact_id": artifact_id}
-                )
-                # Filter manually
-                artifact_chunks = [r for r in results if r.metadata.get("type") == "artifact_chunk"]
-                artifact_chunks.sort(key=lambda x: x.metadata.get("chunk_index", 0))
-                return artifact_chunks
-            except:
-                return []
+        """Get all chunks for a specific artifact, sorted by chunk_index."""
+        chunks = self._get_chunks({"artifact_id": artifact_id})
+        chunks.sort(key=lambda x: x.metadata.get("chunk_index", 0))
+        return chunks
 
     def generate_answer(self, question: str, context_docs: List[Document]) -> str:
         """Generate an answer based on the question and context documents."""
